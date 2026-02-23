@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:;">
 	<title>Headshot Pro</title>
 	<style>
 		/* Base Layout */
@@ -66,6 +67,7 @@
 
 		/* Progress & Status */
 		#status { margin-top: 15px; font-weight: 500; min-height: 20px; font-size: 13px; color: #555; text-align: center; }
+		#status.error { color: #dc3545; }
 		#progress-container { width: 100%; background: #e9ecef; height: 8px; border-radius: 4px; margin-top: 10px; display: none; overflow: hidden; }
 		#progress-bar { height: 100%; background: #28a745; width: 0%; transition: width 0.3s ease; }
 		
@@ -153,21 +155,20 @@
 	</div>
 
 	<script>
-		const { ipcRenderer, shell } = window.electronAPI.*;
-		const path = require('path');
 		let selectedFolder = null;
 		let firstImageFile = null;
 
-		// UI Helpers
+		// --- UI HELPERS ---
+
 		document.getElementById('transparentBg').onchange = (e) => {
 			const colorInput = document.getElementById('colorContainer');
 			if (e.target.checked) colorInput.classList.add('disabled-input');
 			else colorInput.classList.remove('disabled-input');
 		};
 
-		const updateVal = (id, displayId, suffix = "") => {
+		const updateVal = (id, displayId) => {
 			document.getElementById(id).oninput = (e) => {
-				document.getElementById(displayId).innerText = e.target.value + suffix;
+				document.getElementById(displayId).innerText = e.target.value;
 			};
 		};
 		document.getElementById('headScale').oninput = (e) => {
@@ -183,27 +184,39 @@
 		function getOptions() {
 			return {
 				transparent: document.getElementById('transparentBg').checked,
-				color: document.getElementById('bgColor').value,
-				scale: document.getElementById('headScale').value,
-				width: document.getElementById('targetWidth').value,
+				color:  document.getElementById('bgColor').value,
+				scale:  document.getElementById('headScale').value,
+				width:  document.getElementById('targetWidth').value,
 				height: document.getElementById('targetHeight').value,
-				erode: document.getElementById('erodeSize').value,
-				fg: document.getElementById('fgThreshold').value,
-				bg: document.getElementById('bgThreshold').value
+				erode:  document.getElementById('erodeSize').value,
+				fg:     document.getElementById('fgThreshold').value,
+				bg:     document.getElementById('bgThreshold').value
 			};
 		}
 
+		function showError(msg) {
+			const status = document.getElementById('status');
+			status.innerText = `⚠️ ${msg}`;
+			status.classList.add('error');
+		}
+
+		function clearError() {
+			const status = document.getElementById('status');
+			status.classList.remove('error');
+		}
+
 		// --- BUTTONS ---
+
 		document.getElementById('selectBtn').onclick = async () => {
-			const result = await ipcRenderer.invoke('select-folder');
+			const result = await window.electronAPI.selectFolder();
 			if (result && result.folderPath) {
 				selectedFolder = result.folderPath;
 				firstImageFile = result.firstImage;
 				document.getElementById('selectedPath').innerText = selectedFolder;
-				
-				resetUI(); // Clear previous success state
+
+				resetUI();
 				document.getElementById('startBtn').disabled = false;
-				
+
 				if (firstImageFile) {
 					document.getElementById('previewBtn').disabled = false;
 					document.getElementById('placeholderText').innerText = "Click 'Update Preview' to see settings applied.";
@@ -215,41 +228,40 @@
 
 		document.getElementById('previewBtn').onclick = () => {
 			if (!firstImageFile) return;
+			clearError();
 			document.getElementById('previewBtn').disabled = true;
 			document.getElementById('placeholderText').style.display = 'none';
 			document.getElementById('previewImg').style.display = 'none';
 			document.getElementById('loadingSpinner').style.display = 'block';
 
-			ipcRenderer.send('run-preview', { 
+			window.electronAPI.runPreview({
 				inputPath: selectedFolder,
 				filename: firstImageFile,
-				options: getOptions() 
+				options: getOptions()
 			});
 		};
 
 		document.getElementById('startBtn').onclick = () => {
 			if (!selectedFolder) return;
+			clearError();
 			document.getElementById('startBtn').disabled = true;
 			document.getElementById('selectBtn').disabled = true;
 			document.getElementById('previewBtn').disabled = true;
 			document.getElementById('status').innerText = "Starting...";
 			document.getElementById('progress-container').style.display = 'block';
-			
-			ipcRenderer.send('run-batch', { 
-				inputPath: selectedFolder, 
-				options: getOptions() 
+
+			window.electronAPI.runBatch({
+				inputPath: selectedFolder,
+				options: getOptions()
 			});
 		};
 
-		// Open Folder Button
 		document.getElementById('openFolderBtn').onclick = () => {
 			if (selectedFolder) {
-				const processedPath = path.join(selectedFolder, '_Processed');
-				shell.openPath(processedPath);
+				window.electronAPI.openPath(selectedFolder + '/_Processed');
 			}
 		};
 
-		// Start New Batch (Reset) Button
 		document.getElementById('resetBtn').onclick = () => {
 			selectedFolder = null;
 			firstImageFile = null;
@@ -259,11 +271,11 @@
 			document.getElementById('previewImg').style.display = 'none';
 			document.getElementById('previewBtn').disabled = true;
 			document.getElementById('startBtn').disabled = true;
-			
 			resetUI();
 		};
 
 		function resetUI() {
+			clearError();
 			document.getElementById('successArea').style.display = 'none';
 			document.getElementById('actionButtons').style.display = 'block';
 			document.getElementById('progress-bar').style.width = '0%';
@@ -272,30 +284,44 @@
 			document.getElementById('selectBtn').disabled = false;
 		}
 
-		// --- LISTENERS ---
-		ipcRenderer.on('preview-result', (event, imagePath) => {
+		// --- IPC LISTENERS ---
+
+		window.electronAPI.onPreviewResult((imagePath) => {
 			document.getElementById('previewBtn').disabled = false;
 			document.getElementById('loadingSpinner').style.display = 'none';
-			
 			const img = document.getElementById('previewImg');
-			img.src = `${imagePath}?t=${new Date().getTime()}`; 
+			img.src = `${imagePath}?t=${new Date().getTime()}`;
 			img.style.display = 'block';
 		});
 
-		ipcRenderer.on('python-output', (event, message) => {
-			// FIX: Using includes() handles cases where DONE might have whitespace
+		window.electronAPI.onPreviewError((message) => {
+			document.getElementById('previewBtn').disabled = false;
+			document.getElementById('loadingSpinner').style.display = 'none';
+			document.getElementById('placeholderText').style.display = 'block';
+			document.getElementById('placeholderText').innerText = "Preview failed.";
+			showError(message);
+		});
+
+		window.electronAPI.onPythonOutput((message) => {
 			if (message.startsWith("PROGRESS:")) {
 				const parts = message.split(":")[1].split("/");
 				const current = parseInt(parts[0]);
 				const total = parseInt(parts[1]);
 				document.getElementById('progress-bar').style.width = ((current / total) * 100) + "%";
 				document.getElementById('status').innerText = `Processing ${current} / ${total}`;
-			}
-			else if (message.includes("DONE")) {
+			} else if (message.includes("DONE")) {
 				document.getElementById('status').innerText = "";
 				document.getElementById('actionButtons').style.display = 'none';
 				document.getElementById('successArea').style.display = 'flex';
 			}
+		});
+
+		window.electronAPI.onPythonError((message) => {
+			document.getElementById('startBtn').disabled = false;
+			document.getElementById('selectBtn').disabled = false;
+			document.getElementById('previewBtn').disabled = false;
+			document.getElementById('progress-container').style.display = 'none';
+			showError(message);
 		});
 	</script>
 </body>
