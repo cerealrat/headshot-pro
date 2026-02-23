@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Headshot Pro</title>
+	<style>
+		/* Base Layout */
+		body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background: #f0f2f5; color: #333; margin: 0; height: 100vh; box-sizing: border-box; }
+		.app-container { display: flex; gap: 20px; height: 100%; max-width: 1000px; margin: 0 auto; }
+		
+		/* Left Column: Controls */
+		.controls-panel { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-y: auto; display: flex; flex-direction: column;}
+		
+		/* Right Column: Preview */
+		.preview-panel { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+		
+		h1 { margin-top: 0; color: #2c3e50; font-size: 24px; margin-bottom: 20px; }
+		
+		/* Settings */
+		.control-group { margin-bottom: 15px; }
+		label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; }
+		input[type="number"], input[type="range"] { width: 100%; box-sizing: border-box; }
+		.row { display: flex; gap: 10px; }
+		.col { flex: 1; }
+		
+		.checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 14px; }
+		input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+		.disabled-input { opacity: 0.5; pointer-events: none; }
+		.value-display { float: right; font-weight: normal; color: #666; font-size: 12px; }
+		
+		/* Buttons */
+		.btn { padding: 10px 15px; font-size: 14px; cursor: pointer; border: none; border-radius: 6px; width: 100%; transition: background 0.2s; font-weight: 600; margin-bottom: 10px; }
+		.btn-primary { background: #007bff; color: white; }
+		.btn-primary:hover { background: #0056b3; }
+		.btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+		.btn-secondary { background: #6c757d; color: white; }
+		.btn-outline { background: white; border: 2px solid #007bff; color: #007bff; margin-top: 10px; }
+		.btn-outline:hover { background: #f0f8ff; }
+		.btn-preview { background: #17a2b8; color: white; margin-top: 10px; }
+		.btn-preview:hover { background: #138496; }
+
+		/* Preview Area */
+		.preview-area { 
+			flex-grow: 1; 
+			display: flex; align-items: center; justify-content: center; 
+			width: 100%; position: relative; min-height: 300px; 
+			border-radius: 8px; border: 1px solid #ddd; overflow: hidden;
+			background-color: #eee;
+			background-image:
+			  linear-gradient(45deg, #ccc 25%, transparent 25%),
+			  linear-gradient(-45deg, #ccc 25%, transparent 25%),
+			  linear-gradient(45deg, transparent 75%, #ccc 75%),
+			  linear-gradient(-45deg, transparent 75%, #ccc 75%);
+			background-size: 20px 20px;
+			background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+		}
+
+		#previewImg { max-width: 100%; max-height: 100%; object-fit: contain; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+		.placeholder { color: #666; font-style: italic; text-align: center; padding: 20px; background: rgba(255,255,255,0.9); border-radius: 4px; }
+		
+		.spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; display: none; }
+		@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+		/* Details */
+		details { margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px; }
+		summary { cursor: pointer; font-weight: 600; color: #007bff; outline: none; font-size: 14px; }
+
+		/* Progress & Status */
+		#status { margin-top: 15px; font-weight: 500; min-height: 20px; font-size: 13px; color: #555; text-align: center; }
+		#progress-container { width: 100%; background: #e9ecef; height: 8px; border-radius: 4px; margin-top: 10px; display: none; overflow: hidden; }
+		#progress-bar { height: 100%; background: #28a745; width: 0%; transition: width 0.3s ease; }
+		
+		/* Success Overlay */
+		.success-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; margin-top: 20px; padding: 20px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; color: #155724; }
+	</style>
+</head>
+<body>
+	<div class="app-container">
+		<div class="controls-panel">
+			<h1>Headshot Pro</h1>
+			
+			<button id="selectBtn" class="btn btn-secondary">📂 Select Input Folder</button>
+			<p id="selectedPath" style="font-size: 12px; color: #666; margin-top: 5px; word-break: break-all;">No folder selected</p>
+			<hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+			<div class="checkbox-group">
+				<input type="checkbox" id="transparentBg">
+				<label for="transparentBg" style="margin-bottom: 0;">Transparent Background</label>
+			</div>
+
+			<div class="control-group" id="colorContainer">
+				<label>Background Color <span id="colorVal" class="value-display">#BFC1D0</span></label>
+				<input type="color" id="bgColor" value="#bfc1d0" style="width: 100%; height: 35px; cursor: pointer;">
+			</div>
+
+			<div class="control-group">
+				<label>Head Scale <span id="scaleVal" class="value-display">85%</span></label>
+				<input type="range" id="headScale" min="0.5" max="1.0" step="0.05" value="0.85">
+			</div>
+			
+			<div class="row">
+				<div class="col control-group">
+					<label>Width (px)</label>
+					<input type="number" id="targetWidth" value="600">
+				</div>
+				<div class="col control-group">
+					<label>Height (px)</label>
+					<input type="number" id="targetHeight" value="600">
+				</div>
+			</div>
+
+			<details>
+				<summary>Advanced Edge Settings</summary>
+				<div class="control-group" style="margin-top: 15px;">
+					<label>Erode Size <span id="erodeVal" class="value-display">15</span></label>
+					<input type="range" id="erodeSize" min="0" max="40" value="15">
+				</div>
+				<div class="control-group">
+					<label>Foreground Threshold <span id="fgVal" class="value-display">220</span></label>
+					<input type="range" id="fgThreshold" min="100" max="255" value="220">
+				</div>
+				<div class="control-group">
+					<label>Background Threshold <span id="bgVal" class="value-display">15</span></label>
+					<input type="range" id="bgThreshold" min="0" max="50" value="15">
+				</div>
+			</details>
+		</div>
+
+		<div class="preview-panel">
+			<h2 style="margin-top: 0;">Preview</h2>
+			<div class="preview-area">
+				<p id="placeholderText" class="placeholder">Select a folder to enable preview</p>
+				<div id="loadingSpinner" class="spinner"></div>
+				<img id="previewImg">
+			</div>
+			
+			<div style="width: 100%; margin-top: 20px;">
+				<div id="actionButtons">
+					<button id="previewBtn" class="btn btn-preview" disabled>👁️ Update Preview</button>
+					<button id="startBtn" class="btn btn-primary" disabled>🚀 Start Batch Processing</button>
+				</div>
+
+				<div id="status"></div>
+				<div id="progress-container"><div id="progress-bar"></div></div>
+
+				<div id="successArea" class="success-overlay">
+					<h3 style="margin: 0 0 10px 0;">✅ Batch Complete!</h3>
+					<p style="margin: 0 0 15px 0; font-size: 14px;">Images saved to '_Processed' folder.</p>
+					<button id="openFolderBtn" class="btn btn-secondary" style="width: 100%;">📂 Open Folder</button>
+					<button id="resetBtn" class="btn btn-outline" style="width: 100%;">🔄 Start New Batch</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		const { ipcRenderer, shell } = require('electron');
+		const path = require('path');
+		let selectedFolder = null;
+		let firstImageFile = null;
+
+		// UI Helpers
+		document.getElementById('transparentBg').onchange = (e) => {
+			const colorInput = document.getElementById('colorContainer');
+			if (e.target.checked) colorInput.classList.add('disabled-input');
+			else colorInput.classList.remove('disabled-input');
+		};
+
+		const updateVal = (id, displayId, suffix = "") => {
+			document.getElementById(id).oninput = (e) => {
+				document.getElementById(displayId).innerText = e.target.value + suffix;
+			};
+		};
+		document.getElementById('headScale').oninput = (e) => {
+			document.getElementById('scaleVal').innerText = Math.round(e.target.value * 100) + "%";
+		};
+		updateVal('erodeSize', 'erodeVal');
+		updateVal('fgThreshold', 'fgVal');
+		updateVal('bgThreshold', 'bgVal');
+		document.getElementById('bgColor').oninput = (e) => {
+			document.getElementById('colorVal').innerText = e.target.value.toUpperCase();
+		};
+
+		function getOptions() {
+			return {
+				transparent: document.getElementById('transparentBg').checked,
+				color: document.getElementById('bgColor').value,
+				scale: document.getElementById('headScale').value,
+				width: document.getElementById('targetWidth').value,
+				height: document.getElementById('targetHeight').value,
+				erode: document.getElementById('erodeSize').value,
+				fg: document.getElementById('fgThreshold').value,
+				bg: document.getElementById('bgThreshold').value
+			};
+		}
+
+		// --- BUTTONS ---
+		document.getElementById('selectBtn').onclick = async () => {
+			const result = await ipcRenderer.invoke('select-folder');
+			if (result && result.folderPath) {
+				selectedFolder = result.folderPath;
+				firstImageFile = result.firstImage;
+				document.getElementById('selectedPath').innerText = selectedFolder;
+				
+				resetUI(); // Clear previous success state
+				document.getElementById('startBtn').disabled = false;
+				
+				if (firstImageFile) {
+					document.getElementById('previewBtn').disabled = false;
+					document.getElementById('placeholderText').innerText = "Click 'Update Preview' to see settings applied.";
+				} else {
+					document.getElementById('placeholderText').innerText = "No images found in folder.";
+				}
+			}
+		};
+
+		document.getElementById('previewBtn').onclick = () => {
+			if (!firstImageFile) return;
+			document.getElementById('previewBtn').disabled = true;
+			document.getElementById('placeholderText').style.display = 'none';
+			document.getElementById('previewImg').style.display = 'none';
+			document.getElementById('loadingSpinner').style.display = 'block';
+
+			ipcRenderer.send('run-preview', { 
+				inputPath: selectedFolder,
+				filename: firstImageFile,
+				options: getOptions() 
+			});
+		};
+
+		document.getElementById('startBtn').onclick = () => {
+			if (!selectedFolder) return;
+			document.getElementById('startBtn').disabled = true;
+			document.getElementById('selectBtn').disabled = true;
+			document.getElementById('previewBtn').disabled = true;
+			document.getElementById('status').innerText = "Starting...";
+			document.getElementById('progress-container').style.display = 'block';
+			
+			ipcRenderer.send('run-batch', { 
+				inputPath: selectedFolder, 
+				options: getOptions() 
+			});
+		};
+
+		// Open Folder Button
+		document.getElementById('openFolderBtn').onclick = () => {
+			if (selectedFolder) {
+				const processedPath = path.join(selectedFolder, '_Processed');
+				shell.openPath(processedPath);
+			}
+		};
+
+		// Start New Batch (Reset) Button
+		document.getElementById('resetBtn').onclick = () => {
+			selectedFolder = null;
+			firstImageFile = null;
+			document.getElementById('selectedPath').innerText = "No folder selected";
+			document.getElementById('placeholderText').innerText = "Select a folder to enable preview";
+			document.getElementById('placeholderText').style.display = 'block';
+			document.getElementById('previewImg').style.display = 'none';
+			document.getElementById('previewBtn').disabled = true;
+			document.getElementById('startBtn').disabled = true;
+			
+			resetUI();
+		};
+
+		function resetUI() {
+			document.getElementById('successArea').style.display = 'none';
+			document.getElementById('actionButtons').style.display = 'block';
+			document.getElementById('progress-bar').style.width = '0%';
+			document.getElementById('progress-container').style.display = 'none';
+			document.getElementById('status').innerText = "";
+			document.getElementById('selectBtn').disabled = false;
+		}
+
+		// --- LISTENERS ---
+		ipcRenderer.on('preview-result', (event, imagePath) => {
+			document.getElementById('previewBtn').disabled = false;
+			document.getElementById('loadingSpinner').style.display = 'none';
+			
+			const img = document.getElementById('previewImg');
+			img.src = `${imagePath}?t=${new Date().getTime()}`; 
+			img.style.display = 'block';
+		});
+
+		ipcRenderer.on('python-output', (event, message) => {
+			// FIX: Using includes() handles cases where DONE might have whitespace
+			if (message.startsWith("PROGRESS:")) {
+				const parts = message.split(":")[1].split("/");
+				const current = parseInt(parts[0]);
+				const total = parseInt(parts[1]);
+				document.getElementById('progress-bar').style.width = ((current / total) * 100) + "%";
+				document.getElementById('status').innerText = `Processing ${current} / ${total}`;
+			}
+			else if (message.includes("DONE")) {
+				document.getElementById('status').innerText = "";
+				document.getElementById('actionButtons').style.display = 'none';
+				document.getElementById('successArea').style.display = 'flex';
+			}
+		});
+	</script>
+</body>
+</html>
