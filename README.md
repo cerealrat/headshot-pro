@@ -48,9 +48,9 @@ The compilation creates a `dist/` folder containing an `engine` folder. You must
 mv dist/engine .
 ```
 
-
 *Windows Command:*
 Move the `dist\engine` folder to the main project directory manually.
+
 3. **Cleanup (Optional):**
 You can now safely delete the `build/` and `dist/` folders created by PyInstaller.
 ---
