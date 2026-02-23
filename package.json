@@ -9,7 +9,7 @@
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "com.summitspine.headshots",
+    "appId": "com.imedia-one.headshot-pro",
     "mac": {
       "target": "dmg",
       "icon": "icon.icns"
