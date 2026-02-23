@@ -1,0 +1,25 @@
+# === Node / Electron ===
+node_modules/
+dist/
+
+# === Python / PyInstaller ===
+engine/
+build/
+__pycache__/
+*.py[cod]
+*.spec
+
+# === macOS ===
+.DS_Store
+
+# === Windows ===
+Thumbs.db
+desktop.ini
+
+# === Logs ===
+*.log
+npm-debug.log*
+
+# === Environment ===
+.env
+.env.*
